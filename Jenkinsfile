@@ -34,7 +34,7 @@ pipeline {
                     withCredentials([string(credentialsId: 'railway_token', variable: 'RAILWAY_TOKEN')]) {
                         sh '''
                             npm install @railway/cli
-                            npx railway login --token "$RAILWAY_TOKEN"
+                            export RAILWAY_TOKEN=$RAILWAY_TOKEN
                             npx railway up --environment production
                         '''
                     }
