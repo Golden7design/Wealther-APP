@@ -35,6 +35,7 @@ app.get("/", (req, res) => {
 });
 
 // Endpoint metrics (exposé par le SDK)
+
 app.use(seqpulse.metrics());
 
 const server = http.createServer((req, res) => {
