@@ -1,42 +1,86 @@
 const http = require("http");
-const fs = require('fs');
-const requests = require('requests');
+const fs = require("fs");
+const requests = require("requests");
+const express = require("express");
+const seqpulse = require("seqpulse")
 
-const homeFile = fs.readFileSync("home.html","utf-8");
+const app = express();
 
-const replaceVal = (tempVal, OrignalVal)=>{
-    const num = OrignalVal.main.temp; 
-    const minTemp = OrignalVal.main.temp_min;
-    const maxTemp = OrignalVal.main.temp_max;
-    console.log((num -273).toFixed(2))
-      let  temperature = tempVal.replace("{%CityName%}", OrignalVal.name);
-           temperature = temperature.replace("{%tempVal%}",(num - 273).toFixed(2));
-           temperature = temperature.replace("{%tempStatus%}",OrignalVal.weather[0].main);
-           temperature = temperature.replace("{%tempMin%}",(minTemp - 273).toFixed(2));
-           temperature = temperature.replace("{%tempMax%}",(maxTemp - 273).toFixed(2));
-    return temperature;
-}
+const homeFile = fs.readFileSync("home.html", "utf-8");
 
-const server = http.createServer((req,res)=>{
-    if(req.url == "/"){
-        requests("{api.openweathermap.org} KEY")
-        .on('data', (chunk)=> {
-            const ObjData = JSON.parse(chunk);
-            const arrData = [ObjData]
-            // const num = arrData[0].main.temp;
-            // console.log((num - 273).toFixed(2))
-            const realTimeData = arrData
-            .map((val)=> replaceVal(homeFile,val))
-            .join("")
-                // console.log(arrData)
-                res.write(realTimeData);
-            })
-        .on('end', (err)=> {
-            if (err) return console.log('connection closed due to errors', err);
-             res.end();
-        });
+const replaceVal = (tempVal, originalVal) => {
+    const temperature = originalVal.main.temp;
+    const minTemp = originalVal.main.temp_min;
+    const maxTemp = originalVal.main.temp_max;
 
-    }
+    let output = tempVal.replace("{%CityName%}", originalVal.name);
+    output = output.replace("{%tempVal%}", temperature.toFixed(1));
+    output = output.replace("{%tempStatus%}", originalVal.weather[0].main);
+    output = output.replace("{%tempMin%}", minTemp.toFixed(1));
+    output = output.replace("{%tempMax%}", maxTemp.toFixed(1));
+
+    return output;
+};
+
+// Initialiser SeqPulse
+seqpulse.init({
+  endpoint: "/seqpulse_metrics",
+  hmacEnabled: false,  // Désactivé pour le test
 });
 
-server.listen(3000, "127.0.0.1");
+// Routes de l'app
+app.get("/", (req, res) => {
+  res.send("Mon app de test");
+});
+
+// Endpoint metrics (exposé par le SDK)
+app.use(seqpulse.metrics());
+
+const server = http.createServer((req, res) => {
+
+    if (req.url === "/") {
+
+        const apiKey = "edfb86d3e4c065f008fd69c66c677434";
+
+        const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=Paris&units=metric&appid=${apiKey}`;
+
+        let data = "";
+
+        requests(apiUrl)
+
+            .on("data", (chunk) => {
+                data += chunk;
+            })
+
+            .on("end", (err) => {
+
+                if (err) {
+                    console.log("connection closed due to errors", err);
+                    res.end();
+                    return;
+                }
+
+                const ObjData = JSON.parse(data);
+
+                if (!ObjData.main) {
+                    res.write("API error: " + JSON.stringify(ObjData));
+                    res.end();
+                    return;
+                }
+
+                const arrData = [ObjData];
+
+                const realTimeData = arrData
+                    .map((val) => replaceVal(homeFile, val))
+                    .join("");
+
+                res.write(realTimeData);
+                res.end();
+            });
+    }
+
+});
+
+server.listen(process.env.PORT || 4000, "127.0.0.1", () => {
+    console.log("Server running on http://127.0.0.1:4000");
+});

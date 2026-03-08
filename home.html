@@ -192,75 +192,57 @@
     </div>
 
     <script>
-            const curDate = document.getElementById('date');
-            let weatherico = document.getElementsByClassName('weather-icon');
 
-            const tempStatus = "{%tempStatus%}";
-            console.log(tempStatus);
-            if(tempStatus == "Sunny" || tempStatus == "Clear"){
-                    weatherico.innerHTML = `<i class="fas fa-sun" style="color: #eccc68;"></i>`
-            }
-            else if(tempStatus == "Clouds"){
-                weatherico.innerHTML = `<i class="fas fa-clouds" style="color: #f1f2f6;"></i>`
-            }
-            else if(tempStatus == "Rainy"){
-                weatherico.innerHTML = `<i class="fas fa-cloud-showers-heavy" style="color: #a4b0be;"></i>`
-            }
+const curDate = document.getElementById('date');
+const weatherico = document.querySelector('.weather-icon');
 
-            const getCurrDate = ()=>{
-                let weekday = new Array(7);
-                weekday[0] = "SUN";
-                weekday[1] = "MON";
-                weekday[2] = "TUE";
-                weekday[3] = "WED";
-                weekday[4] = "THU";
-                weekday[5] = "FRI";
-                weekday[6] = "SAT";
+const tempStatus = "{%tempStatus%}";
 
-                let currntTimes = new Date();
-                let Day = weekday[currntTimes.getDay()];
-                return Day;
-            }
-            const getCurrTime = ()=>{
-                let months = [
-                    "JAN",
-                    "FEB",
-                    "MAR",
-                    "APR",
-                    "MAY",
-                    "JUNE",
-                    "JULY",
-                    "AUG",
-                    "SEP",
-                    "OCT",
-                    "NOV",
-                    "DEC"
-                ]
-                let Now = new Date();
-                let month = months[Now.getMonth() + 1];
-                let date = Now.getDate();
+if(tempStatus == "Sunny" || tempStatus == "Clear"){
+    weatherico.innerHTML = `<i class="fas fa-sun" style="color:#eccc68;"></i>`;
+}
+else if(tempStatus == "Clouds"){
+    weatherico.innerHTML = `<i class="fas fa-cloud" style="color:#f1f2f6;"></i>`;
+}
+else if(tempStatus == "Rain"){
+    weatherico.innerHTML = `<i class="fas fa-cloud-showers-heavy" style="color:#a4b0be;"></i>`;
+}
+else{
+    weatherico.innerHTML = `<i class="fas fa-sun"></i>`;
+}
 
-                let hours = Now.getHours();
-                let min = Now.getMinutes();
+const getCurrDate = ()=>{
+    const weekday = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+    const currentTime = new Date();
+    return weekday[currentTime.getDay()];
+}
 
-                let Priade = "AM";
-                if(hours > 11){
-                    Priade ="PM"
-                    if(hours > 12){
-                        hours = hours - 12;
-                    }
-                }else{
-                    Priade = "AM"
-                }
-                if(min < 10){
-                    min = "0" + min
-                }
+const getCurrTime = ()=>{
+    const months = ["JAN","FEB","MAR","APR","MAY","JUNE","JULY","AUG","SEP","OCT","NOV","DEC"];
 
-                return `${getCurrDate()} | ${month} ${date} | ${hours}:${min} ${Priade}`;
-            }
-            // console.log(getCurrTime())
-            curDate.innerText = getCurrTime();
+    const now = new Date();
+    const month = months[now.getMonth()];
+    const date = now.getDate();
 
-    </script>
+    let hours = now.getHours();
+    let min = now.getMinutes();
+
+    let period = "AM";
+
+    if(hours > 11){
+        period = "PM";
+        if(hours > 12) hours -= 12;
+    }
+
+    if(min < 10){
+        min = "0" + min;
+    }
+
+    return `${getCurrDate()} | ${month} ${date} | ${hours}:${min} ${period}`;
+}
+
+curDate.innerText = getCurrTime();
+
+</script>
 </body>
 </html>
