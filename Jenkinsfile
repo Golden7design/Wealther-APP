@@ -33,12 +33,11 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                // Déploiement Railway avec token stocké dans Jenkins Credentials
                 withCredentials([string(credentialsId: 'railway_token', variable: 'RAILWAY_TOKEN')]) {
                     sh '''
-                        npm install -g railway
-                        railway login --token "$RAILWAY_TOKEN"
-                        railway up --environment production
+                        npm install railway
+                        npx railway login --token "$RAILWAY_TOKEN"
+                        npx railway up --environment production
                     '''
                 }
             }
