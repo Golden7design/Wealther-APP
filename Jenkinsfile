@@ -15,33 +15,31 @@ pipeline {
             }
         }
 
-        stage('SeqPulse Trigger') {
-            steps {
-                script {
-                    // Trigger SeqPulse et récupérer deploymentId
-                    sh 'npx seqpulse ci trigger --env prod --branch "$BRANCH_NAME" > .seqpulse_trigger.json'
-                    sh '''
-                        node -e "
-                            const fs = require('fs');
-                            const o = JSON.parse(fs.readFileSync('.seqpulse_trigger.json','utf8'));
-                            fs.writeFileSync('.seqpulse_deployment_id', o.deploymentId || '');
-                        "
-                    '''
+            stage('SeqPulse Trigger') {
+                steps {
+                    script {
+                        def branch = env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main'
+                        sh """
+                            npx seqpulse ci trigger --env prod --branch "$branch" > .seqpulse_trigger.json
+                        """
+                        sh """
+                            node -e "const fs=require('fs');const o=JSON.parse(fs.readFileSync('.seqpulse_trigger.json','utf8'));fs.writeFileSync('.seqpulse_deployment_id', o.deploymentId || '')"
+                        """
+                    }
                 }
             }
-        }
 
-        stage('Deploy') {
-            steps {
-                withCredentials([string(credentialsId: 'railway_token', variable: 'RAILWAY_TOKEN')]) {
-                    sh '''
-                        npm install railway
-                        npx railway login --token "$RAILWAY_TOKEN"
-                        npx railway up --environment production
-                    '''
+            stage('Deploy') {
+                steps {
+                    withCredentials([string(credentialsId: 'railway_token', variable: 'RAILWAY_TOKEN')]) {
+                        sh '''
+                            npm install @railway/cli
+                            npx railway login --token "$RAILWAY_TOKEN"
+                            npx railway up --environment production
+                        '''
+                    }
                 }
             }
-        }
     }
 
     post {
