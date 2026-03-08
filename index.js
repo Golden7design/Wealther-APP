@@ -25,7 +25,8 @@ const replaceVal = (tempVal, originalVal) => {
 // Initialiser SeqPulse
 seqpulse.init({
   endpoint: "/seqpulse_metrics",
-  hmacEnabled: false,  // Désactivé pour le test
+  hmacEnabled: process.env.SEQPULSE_HMAC_ENABLED || "false",
+  hmacSecret: process.env.SEQPULSE_HMAC_SECRET
 });
 
 // Routes de l'app
