@@ -237,6 +237,7 @@ const getCurrTime = ()=>{
     if(min < 10){
         min = "0" + min;
     }
+    
     return `${getCurrDate()} | ${month} ${date} | ${hours}:${min} ${period}`;
 }
 curDate.innerText = getCurrTime();
