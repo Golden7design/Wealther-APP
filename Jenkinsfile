@@ -24,17 +24,28 @@ pipeline {
         stage('SeqPulse Trigger') {
             steps {
                 script {
-                    def branch = env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main'
-                    env.SEQPULSE_DEPLOYMENT_ID = sh(
+                    def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
+                        .replaceFirst(/^origin\//, '')
+                    def triggerRaw = sh(
                         script: """
-                            npx -y seqpulse@0.5.1 ci trigger \
+                            npx -y seqpulse@0.5.2 ci trigger \
                               --env prod \
                               --branch "${branch}" \
                               --non-blocking true \
-                              --output deploymentId
+                              --timeout-ms 15000 \
+                              --output json
                         """,
                         returnStdout: true
                     ).trim()
+
+                    def triggerResult = new groovy.json.JsonSlurperClassic().parseText(triggerRaw ?: "{}")
+                    if (triggerResult?.ok && triggerResult?.deploymentId) {
+                        env.SEQPULSE_DEPLOYMENT_ID = String.valueOf(triggerResult.deploymentId)
+                        echo "SeqPulse trigger accepted for deployment ${env.SEQPULSE_DEPLOYMENT_ID}"
+                    } else {
+                        env.SEQPULSE_DEPLOYMENT_ID = ''
+                        echo "SeqPulse trigger skipped: ${triggerResult?.error ?: 'unknown error'}"
+                    }
                 }
             }
         }
@@ -55,12 +66,17 @@ pipeline {
         always {
             script {
                 def jobStatus = (currentBuild.currentResult ?: 'SUCCESS').toLowerCase()
-                sh """
-                    npx -y seqpulse@0.5.1 ci finish \
-                      --deployment-id "${env.SEQPULSE_DEPLOYMENT_ID ?: ''}" \
-                      --job-status "${jobStatus}" \
-                      --non-blocking true
-                """
+                if (env.SEQPULSE_DEPLOYMENT_ID?.trim()) {
+                    sh """
+                        npx -y seqpulse@0.5.2 ci finish \
+                          --deployment-id "${env.SEQPULSE_DEPLOYMENT_ID}" \
+                          --job-status "${jobStatus}" \
+                          --timeout-ms 15000 \
+                          --non-blocking true
+                    """
+                } else {
+                    echo 'Skipping SeqPulse finish: no deployment id available.'
+                }
             }
         }
     }
