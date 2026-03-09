@@ -27,17 +27,16 @@ pipeline {
                     def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
                         .replaceFirst(/^origin\//, '')
 
-                    env.SEQPULSE_DEPLOYMENT_ID = sh(
-                        script: """
-                            npx -y seqpulse@0.5.2 ci trigger \
-                              --env prod \
-                              --branch "${branch}" \
-                              --non-blocking true \
-                              --timeout-ms 15000 \
-                              --output deploymentId
-                        """,
-                        returnStdout: true
-                    ).trim()
+                    sh """
+                        npx -y seqpulse@0.5.2 ci trigger \
+                          --env prod \
+                          --branch "${branch}" \
+                          --non-blocking true \
+                          --timeout-ms 15000 \
+                          --output deploymentId > .seqpulse_deployment_id
+                    """
+
+                    env.SEQPULSE_DEPLOYMENT_ID = readFile('.seqpulse_deployment_id').trim()
 
                     if (env.SEQPULSE_DEPLOYMENT_ID) {
                         echo "SeqPulse trigger accepted for deployment ${env.SEQPULSE_DEPLOYMENT_ID}"
