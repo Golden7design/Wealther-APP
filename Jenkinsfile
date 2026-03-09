@@ -26,25 +26,24 @@ pipeline {
                 script {
                     def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
                         .replaceFirst(/^origin\//, '')
-                    def triggerRaw = sh(
+
+                    env.SEQPULSE_DEPLOYMENT_ID = sh(
                         script: """
                             npx -y seqpulse@0.5.2 ci trigger \
                               --env prod \
                               --branch "${branch}" \
                               --non-blocking true \
                               --timeout-ms 15000 \
-                              --output json
+                              --output deploymentId
                         """,
                         returnStdout: true
                     ).trim()
 
-                    def triggerResult = new groovy.json.JsonSlurperClassic().parseText(triggerRaw ?: "{}")
-                    if (triggerResult?.ok && triggerResult?.deploymentId) {
-                        env.SEQPULSE_DEPLOYMENT_ID = String.valueOf(triggerResult.deploymentId)
+                    if (env.SEQPULSE_DEPLOYMENT_ID) {
                         echo "SeqPulse trigger accepted for deployment ${env.SEQPULSE_DEPLOYMENT_ID}"
                     } else {
                         env.SEQPULSE_DEPLOYMENT_ID = ''
-                        echo "SeqPulse trigger skipped: ${triggerResult?.error ?: 'unknown error'}"
+                        echo 'SeqPulse trigger skipped: no deployment id returned.'
                     }
                 }
             }
