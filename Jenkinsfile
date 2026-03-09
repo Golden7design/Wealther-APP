@@ -27,21 +27,18 @@ pipeline {
                     def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
                         .replaceFirst(/^origin\//, '')
 
-                    sh """
-                        set -eu
-                        npx -y seqpulse@0.5.2 ci trigger \
-                          --base-url "$SEQPULSE_BASE_URL" \
-                          --api-key "$SEQPULSE_API_KEY" \
-                          --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
-                          --env prod \
-                          --branch "${branch}" \
-                          --non-blocking true \
-                          --timeout-ms 15000 \
-                          --output deploymentId > .seqpulse_deployment_id
-                    """
-
                     env.SEQPULSE_DEPLOYMENT_ID = sh(
-                        script: 'cat .seqpulse_deployment_id',
+                        script: """
+                            npx -y seqpulse@0.5.2 ci trigger \
+                              --base-url "$SEQPULSE_BASE_URL" \
+                              --api-key "$SEQPULSE_API_KEY" \
+                              --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
+                              --env prod \
+                              --branch "${branch}" \
+                              --non-blocking true \
+                              --timeout-ms 15000 \
+                              --output deploymentId
+                        """,
                         returnStdout: true
                     ).trim()
 
