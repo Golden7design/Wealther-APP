@@ -27,25 +27,27 @@ pipeline {
                     def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
                         .replaceFirst(/^origin\//, '')
 
-                    env.SEQPULSE_DEPLOYMENT_ID = sh(
-                        script: """
-                            npx -y seqpulse@0.5.2 ci trigger \
-                              --base-url "$SEQPULSE_BASE_URL" \
-                              --api-key "$SEQPULSE_API_KEY" \
-                              --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
-                              --env prod \
-                              --branch "${branch}" \
-                              --non-blocking true \
-                              --timeout-ms 15000 \
-                              --output deploymentId
-                        """,
-                        returnStdout: true
-                    ).trim()
+                    sh """
+                        set -eu
+                        npx -y seqpulse@0.5.2 ci trigger \
+                          --base-url "$SEQPULSE_BASE_URL" \
+                          --api-key "$SEQPULSE_API_KEY" \
+                          --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
+                          --env prod \
+                          --branch "${branch}" \
+                          --non-blocking true \
+                          --timeout-ms 15000 \
+                          --output json > .seqpulse_trigger.json
+                    """
+
+                    def triggerRaw = readFile('.seqpulse_trigger.json').trim()
+                    def match = (triggerRaw =~ /"deploymentId":"([^"]+)"/)
+                    env.SEQPULSE_DEPLOYMENT_ID = match ? match[0][1] : ''
 
                     if (env.SEQPULSE_DEPLOYMENT_ID) {
                         echo "SeqPulse trigger accepted for deployment ${env.SEQPULSE_DEPLOYMENT_ID}"
                     } else {
-                        env.SEQPULSE_DEPLOYMENT_ID = ''
+                        echo "SeqPulse trigger raw: ${triggerRaw}"
                         echo 'SeqPulse trigger skipped: no deployment id returned.'
                     }
                 }
