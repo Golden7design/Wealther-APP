@@ -8,9 +8,9 @@ pipeline {
     }
 
     environment {
-        SEQPULSE_BASE_URL = credentials('seqpulse_base_url')
-        SEQPULSE_API_KEY = credentials('seqpulse_api_key')
-        SEQPULSE_METRICS_ENDPOINT = credentials('seqpulse_metrics_endpoint')
+        SEQPULSE_BASE_URL = 'https://zqouk-102-129-82-163.a.free.pinggy.link'
+        SEQPULSE_API_KEY = 'SP_33747dfae32345a3bd16adffecbefe6b'
+        SEQPULSE_METRICS_ENDPOINT = 'https://wealther-app-production.up.railway.app/seqpulse_metrics'
         SEQPULSE_DEPLOYMENT_ID = ''
     }
 
