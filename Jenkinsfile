@@ -59,6 +59,7 @@ pipeline {
                     }
                 }
             }
+        }
         stage('Deploy') {
             steps {
                 withCredentials([string(credentialsId: 'railway_token', variable: 'RAILWAY_TOKEN')]) {
