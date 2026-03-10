@@ -23,13 +23,11 @@ pipeline {
         stage('SeqPulse Trigger') {
             steps {
                 script {
-                    // Déterminer la branche
                     def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
                                     .replaceFirst(/^origin\//, '')
 
                     dir(env.WORKSPACE) {
-                        // Exécuter le trigger SeqPulse et récupérer le JSON
-                        def triggerJson = sh(
+                        env.SEQPULSE_DEPLOYMENT_ID = sh(
                             script: """
                                 npx -y seqpulse@0.5.2 ci trigger \
                                     --base-url "$SEQPULSE_BASE_URL" \
@@ -37,17 +35,12 @@ pipeline {
                                     --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
                                     --env prod \
                                     --branch "${branch}" \
-                                    --output json
+                                    --output deployment_id
                             """,
                             returnStdout: true
                         ).trim()
 
-                        echo "Raw SeqPulse JSON: ${triggerJson}"
-
-                        // Extraire le deploymentId (camelCase ou snake_case)
-                        def matcher = (triggerJson =~ /"(?:deploymentId|deployment_id)"\\s*:\\s*"([^"]+)"/)
-                        if (matcher.find()) {
-                            env.SEQPULSE_DEPLOYMENT_ID = matcher.group(1)
+                        if (env.SEQPULSE_DEPLOYMENT_ID) {
                             echo "SeqPulse deploymentId: ${env.SEQPULSE_DEPLOYMENT_ID}"
                         } else {
                             echo "SeqPulse trigger returned no deployment id."
