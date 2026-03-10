@@ -24,31 +24,32 @@ pipeline {
         stage('SeqPulse Trigger') {
             steps {
                 script {
+                    // Détermination de la branche (main si non détectée)
                     def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
                         .replaceFirst(/^origin\//, '')
 
-                    // on capture tout le JSON
+                    // Exécution du trigger SeqPulse et récupération du JSON
                     def triggerJson = sh(
                         script: """
-                        npx -y seqpulse@0.5.2 ci trigger \
-                        --base-url "$SEQPULSE_BASE_URL" \
-                        --api-key "$SEQPULSE_API_KEY" \
-                        --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
-                        --env prod \
-                        --branch "${branch}" \
-                        --output json
+                            npx -y seqpulse@0.5.2 ci trigger \
+                                --base-url "$SEQPULSE_BASE_URL" \
+                                --api-key "$SEQPULSE_API_KEY" \
+                                --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
+                                --env prod \
+                                --branch "${branch}" \
+                                --output json
                         """,
                         returnStdout: true
                     ).trim()
 
-                    // Groovy parse JSON
-                    def json = readJSON text: triggerJson
-                    env.SEQPULSE_DEPLOYMENT_ID = json.data?.deployment_id ?: ''
+                    // Extraction du deploymentId depuis le JSON avec regex
+                    def matcher = triggerJson =~ /"deployment_id"\\s*:\\s*"([^"]+)"/
+                    env.SEQPULSE_DEPLOYMENT_ID = matcher ? matcher[0][1] : ''
 
                     if (env.SEQPULSE_DEPLOYMENT_ID) {
                         echo "SeqPulse deploymentId: ${env.SEQPULSE_DEPLOYMENT_ID}"
                     } else {
-                        echo "SeqPulse trigger returned no deployment id (maybe already running)."
+                        echo "SeqPulse trigger returned no deployment id."
                     }
                 }
             }
