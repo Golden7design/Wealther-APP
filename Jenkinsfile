@@ -23,11 +23,9 @@ pipeline {
         stage('SeqPulse Trigger') {
             steps {
                 script {
-                    // Déterminer la branche (main par défaut si non détectée)
                     def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
                                     .replaceFirst(/^origin\//, '')
 
-                    // Exécuter le trigger dans le workspace courant
                     dir(env.WORKSPACE) {
                         def triggerJson = sh(
                             script: """
@@ -44,8 +42,8 @@ pipeline {
 
                         echo "Raw SeqPulse JSON: ${triggerJson}"
 
-                        // Extraction du deployment_id depuis le JSON
-                        def matcher = triggerJson =~ /"deployment_id"\\s*:\\s*"([^"]+)"/
+                        // Regex pour matcher deploymentId ou deployment_id
+                        def matcher = triggerJson =~ /"(?:deploymentId|deployment_id)"\s*:\s*"([^"]+)"/
                         env.SEQPULSE_DEPLOYMENT_ID = matcher ? matcher[0][1] : ''
 
                         if (env.SEQPULSE_DEPLOYMENT_ID) {
