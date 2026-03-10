@@ -35,8 +35,6 @@ pipeline {
                           --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
                           --env prod \
                           --branch "${branch}" \
-                          --non-blocking true \
-                          --timeout-ms 15000 \
                           --output deploymentId
                         """,
                         returnStdout: true
@@ -76,8 +74,6 @@ pipeline {
                           --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
                           --deployment-id "${env.SEQPULSE_DEPLOYMENT_ID}" \
                           --job-status "${jobStatus}" \
-                          --timeout-ms 15000 \
-                          --non-blocking true || true
                     """
                 } else {
                     echo 'Skipping SeqPulse finish: no deployment id available.'
