@@ -42,9 +42,9 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    // Extraction du deploymentId depuis le JSON avec regex
-                    def matcher = triggerJson =~ /"deployment_id"\\s*:\\s*"([^"]+)"/
-                    env.SEQPULSE_DEPLOYMENT_ID = matcher ? matcher[0][1] : ''
+                    // Utilisation de readJSON pour parser proprement le JSON
+                    def json = readJSON text: triggerJson
+                    env.SEQPULSE_DEPLOYMENT_ID = json.deployment_id ?: ''
 
                     if (env.SEQPULSE_DEPLOYMENT_ID) {
                         echo "SeqPulse deploymentId: ${env.SEQPULSE_DEPLOYMENT_ID}"
@@ -79,7 +79,7 @@ pipeline {
                           --api-key "$SEQPULSE_API_KEY" \
                           --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
                           --deployment-id "${env.SEQPULSE_DEPLOYMENT_ID}" \
-                          --job-status "${jobStatus}" \
+                          --job-status "${jobStatus}"
                     """
                 } else {
                     echo 'Skipping SeqPulse finish: no deployment id available.'
