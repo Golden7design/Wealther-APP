@@ -21,7 +21,6 @@ pipeline {
             }
         }
         stage('SeqPulse Trigger') {
-            stage('SeqPulse Trigger') {
                 steps {
                     script {
 
@@ -58,7 +57,6 @@ pipeline {
                         }
                     }
                 }
-            }
         }
         stage('Deploy') {
             steps {
