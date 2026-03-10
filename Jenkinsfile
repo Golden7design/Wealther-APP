@@ -20,36 +20,39 @@ pipeline {
                 sh 'npm ci'
             }
         }
-
         stage('SeqPulse Trigger') {
             steps {
                 script {
-                    // Détermination de la branche (main si non détectée)
+                    // Déterminer la branche (main par défaut si non détectée)
                     def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
-                        .replaceFirst(/^origin\//, '')
+                                    .replaceFirst(/^origin\//, '')
 
-                    // Exécution du trigger SeqPulse et récupération du JSON
-                    def triggerJson = sh(
-                        script: """
-                            npx -y seqpulse@0.5.2 ci trigger \
-                                --base-url "$SEQPULSE_BASE_URL" \
-                                --api-key "$SEQPULSE_API_KEY" \
-                                --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
-                                --env prod \
-                                --branch "${branch}" \
-                                --output json
-                        """,
-                        returnStdout: true
-                    ).trim()
+                    // Exécuter le trigger dans le workspace courant
+                    dir(env.WORKSPACE) {
+                        def triggerJson = sh(
+                            script: """
+                                npx -y seqpulse@0.5.2 ci trigger \
+                                    --base-url "$SEQPULSE_BASE_URL" \
+                                    --api-key "$SEQPULSE_API_KEY" \
+                                    --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
+                                    --env prod \
+                                    --branch "${branch}" \
+                                    --output json
+                            """,
+                            returnStdout: true
+                        ).trim()
 
-                    // Utilisation de readJSON pour parser proprement le JSON
-                    def json = readJSON text: triggerJson
-                    env.SEQPULSE_DEPLOYMENT_ID = json.deployment_id ?: ''
+                        echo "Raw SeqPulse JSON: ${triggerJson}"
 
-                    if (env.SEQPULSE_DEPLOYMENT_ID) {
-                        echo "SeqPulse deploymentId: ${env.SEQPULSE_DEPLOYMENT_ID}"
-                    } else {
-                        echo "SeqPulse trigger returned no deployment id."
+                        // Extraction du deployment_id depuis le JSON
+                        def matcher = triggerJson =~ /"deployment_id"\\s*:\\s*"([^"]+)"/
+                        env.SEQPULSE_DEPLOYMENT_ID = matcher ? matcher[0][1] : ''
+
+                        if (env.SEQPULSE_DEPLOYMENT_ID) {
+                            echo "SeqPulse deploymentId: ${env.SEQPULSE_DEPLOYMENT_ID}"
+                        } else {
+                            echo "SeqPulse trigger returned no deployment id."
+                        }
                     }
                 }
             }
