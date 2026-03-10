@@ -27,21 +27,29 @@ pipeline {
                     def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
                         .replaceFirst(/^origin\//, '')
 
-                    env.SEQPULSE_DEPLOYMENT_ID = sh(
+                    // on capture tout le JSON
+                    def triggerJson = sh(
                         script: """
-                        set -eu
                         npx -y seqpulse@0.5.2 ci trigger \
                         --base-url "$SEQPULSE_BASE_URL" \
                         --api-key "$SEQPULSE_API_KEY" \
                         --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
                         --env prod \
                         --branch "${branch}" \
-                        --output deploymentId
+                        --output json
                         """,
                         returnStdout: true
                     ).trim()
 
-                    echo "SeqPulse deploymentId: ${env.SEQPULSE_DEPLOYMENT_ID}"
+                    // Groovy parse JSON
+                    def json = readJSON text: triggerJson
+                    env.SEQPULSE_DEPLOYMENT_ID = json.data?.deployment_id ?: ''
+
+                    if (env.SEQPULSE_DEPLOYMENT_ID) {
+                        echo "SeqPulse deploymentId: ${env.SEQPULSE_DEPLOYMENT_ID}"
+                    } else {
+                        echo "SeqPulse trigger returned no deployment id (maybe already running)."
+                    }
                 }
             }
         }
