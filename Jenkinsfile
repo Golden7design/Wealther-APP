@@ -28,22 +28,22 @@ pipeline {
                         .replaceFirst(/^origin\//, '')
 
                     env.SEQPULSE_DEPLOYMENT_ID = sh(
-                    script: """
-                    npx -y seqpulse@0.5.2 ci trigger \
+                        script: """
+                        npx -y seqpulse@0.5.2 ci trigger \
                         --base-url "$SEQPULSE_BASE_URL" \
                         --api-key "$SEQPULSE_API_KEY" \
                         --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
                         --env prod \
                         --branch "${branch}" \
-                        --output deploymentId | tail -n 1
-                    """,
-                    returnStdout: true
+                        --output deploymentId 2>/dev/null
+                        """,
+                        returnStdout: true
                     ).trim()
 
                     if (env.SEQPULSE_DEPLOYMENT_ID) {
                         echo "SeqPulse deployment: ${env.SEQPULSE_DEPLOYMENT_ID}"
                     } else {
-                        echo "SeqPulse trigger returned no deployment id."
+                        echo "SeqPulse trigger returned no deployment id (maybe already running)."
                     }
                 }
             }
