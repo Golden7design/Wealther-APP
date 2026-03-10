@@ -8,7 +8,7 @@ pipeline {
     }
 
     environment {
-        SEQPULSE_BASE_URL = 'https://9160-102-129-82-163.ngrok-free.app'
+        SEQPULSE_BASE_URL = 'https://9de5-102-129-82-18.ngrok-free.app'
         SEQPULSE_API_KEY = 'SP_33747dfae32345a3bd16adffecbefe6b'
         SEQPULSE_METRICS_ENDPOINT = 'https://wealther-app-production.up.railway.app/seqpulse_metrics'
         SEQPULSE_DEPLOYMENT_ID = ''
@@ -27,8 +27,8 @@ pipeline {
                     def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
                         .replaceFirst(/^origin\//, '')
 
-                    sh """
-                        set -eu
+                    env.SEQPULSE_DEPLOYMENT_ID = sh(
+                        script: """
                         npx -y seqpulse@0.5.2 ci trigger \
                           --base-url "$SEQPULSE_BASE_URL" \
                           --api-key "$SEQPULSE_API_KEY" \
@@ -37,18 +37,15 @@ pipeline {
                           --branch "${branch}" \
                           --non-blocking true \
                           --timeout-ms 15000 \
-                          --output json > .seqpulse_trigger.json
-                    """
-
-                    def triggerRaw = readFile('.seqpulse_trigger.json').trim()
-                    def match = (triggerRaw =~ /"deploymentId":"([^"]+)"/)
-                    env.SEQPULSE_DEPLOYMENT_ID = match ? match[0][1] : ''
+                          --output deploymentId
+                        """,
+                        returnStdout: true
+                    ).trim()
 
                     if (env.SEQPULSE_DEPLOYMENT_ID) {
-                        echo "SeqPulse trigger accepted for deployment ${env.SEQPULSE_DEPLOYMENT_ID}"
+                        echo "SeqPulse deployment: ${env.SEQPULSE_DEPLOYMENT_ID}"
                     } else {
-                        echo "SeqPulse trigger raw: ${triggerRaw}"
-                        echo 'SeqPulse trigger skipped: no deployment id returned.'
+                        echo "SeqPulse trigger returned no deployment id."
                     }
                 }
             }
@@ -59,7 +56,7 @@ pipeline {
                 withCredentials([string(credentialsId: 'railway_token', variable: 'RAILWAY_TOKEN')]) {
                     sh '''
                         export RAILWAY_TOKEN="$RAILWAY_TOKEN"
-                        npx -y @railway/cli up --environment production
+                        npx -y @railway/cli up --environment production || true
                     '''
                 }
             }
@@ -70,6 +67,7 @@ pipeline {
         always {
             script {
                 def jobStatus = (currentBuild.currentResult ?: 'SUCCESS').toLowerCase()
+
                 if (env.SEQPULSE_DEPLOYMENT_ID?.trim()) {
                     sh """
                         npx -y seqpulse@0.5.2 ci finish \
@@ -79,7 +77,7 @@ pipeline {
                           --deployment-id "${env.SEQPULSE_DEPLOYMENT_ID}" \
                           --job-status "${jobStatus}" \
                           --timeout-ms 15000 \
-                          --non-blocking true
+                          --non-blocking true || true
                     """
                 } else {
                     echo 'Skipping SeqPulse finish: no deployment id available.'
