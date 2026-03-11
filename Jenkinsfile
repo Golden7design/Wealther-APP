@@ -13,9 +13,9 @@ pipeline {
     }
 
     environment {
-        SEQPULSE_BASE_URL = credential('seqpulse_base_url')
-        SEQPULSE_API_KEY = credential('seqpulse_api_key')
-        SEQPULSE_METRICS_ENDPOINT = credential('seqpulse_metrics_endpoint')
+        SEQPULSE_BASE_URL = credentials('seqpulse_base_url')
+        SEQPULSE_API_KEY = credentials('seqpulse_api_key')
+        SEQPULSE_METRICS_ENDPOINT = credentials('seqpulse_metrics_endpoint')
     }
 
     stages {
