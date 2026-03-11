@@ -28,19 +28,17 @@ pipeline {
                     def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
                         .replaceFirst(/^origin\//, '')
 
-                    env.SEQPULSE_DEPLOYMENT_ID = sh(
-                        script: """
-                            ./node_modules/.bin/seqpulse ci trigger \
-                              --base-url "$SEQPULSE_BASE_URL" \
-                              --api-key "$SEQPULSE_API_KEY" \
-                              --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
-                              --env prod \
-                              --branch "${branch}" \
-                              --output deployment_id
-                        """,
-                        returnStdout: true
-                    ).trim()
+                    sh """
+                        ./node_modules/.bin/seqpulse ci trigger \
+                          --base-url "$SEQPULSE_BASE_URL" \
+                          --api-key "$SEQPULSE_API_KEY" \
+                          --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
+                          --env prod \
+                          --branch "${branch}" \
+                          --output deployment_id > seqpulse_id.txt
+                    """
 
+                    env.SEQPULSE_DEPLOYMENT_ID = readFile('seqpulse_id.txt').trim()
                     echo "Deployment ID: ${env.SEQPULSE_DEPLOYMENT_ID}"
                 }
             }
