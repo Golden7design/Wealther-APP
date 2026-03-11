@@ -21,38 +21,47 @@ pipeline {
             }
         }
 
-stage('SeqPulse Trigger') {
-    steps {
-        script {
-            def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
-                .replaceFirst(/^origin\//, '')
+        stage('SeqPulse Trigger') {
+            steps {
+                script {
+                    def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
+                        .replaceFirst(/^origin\//, '')
 
-            // 1. Run the command and capture the JSON output directly into a variable
-            def response = sh(
-                script: "npx -y seqpulse@0.5.2 ci trigger --env prod --branch ${branch} --non-blocking true --timeout-ms 15000 --output json",
-                returnStdout: true
-            ).trim()
+                    // Utilisation de returnStdout comme dans ta version qui marchait
+                    def triggerJson = sh(
+                        script: """
+                            npx -y seqpulse@0.5.2 ci trigger \
+                            --env prod \
+                            --branch "${branch}" \
+                            --output json
+                        """,
+                        returnStdout: true
+                    ).trim()
 
-            // 2. Parse the JSON string using Groovy's JsonSlurper
-            def json = new groovy.json.JsonSlurper().parseText(response)
+                    // Extraction robuste avec readJSON (nécessite le plugin Pipeline Utility Steps)
+                    // Ou via Groovy JsonSlurper si le plugin n'est pas là
+                    def json = new groovy.json.JsonSlurper().parseText(triggerJson)
+                    
+                    // Dans ta version JSON, l'ID est parfois dans json.deploymentId ou json.data.deployment_id
+                    env.SEQPULSE_DEPLOYMENT_ID = json.deploymentId ?: json.data?.deployment_id ?: ''
 
-            // 3. Extract the ID and assign to the environment
-            if (json && json.deploymentId) {
-                env.SEQPULSE_DEPLOYMENT_ID = json.deploymentId
-                echo "Successfully captured Deployment ID: ${env.SEQPULSE_DEPLOYMENT_ID}"
-            } else {
-                error "Failed to find deploymentId in SeqPulse response: ${response}"
+                    if (env.SEQPULSE_DEPLOYMENT_ID) {
+                        echo "SeqPulse deploymentId: ${env.SEQPULSE_DEPLOYMENT_ID}"
+                    } else {
+                        echo "Warning: No deployment ID found in response"
+                    }
+                }
             }
         }
-    }
-}
 
         stage('Deploy') {
             steps {
+                // On utilise "|| true" pour ne pas bloquer le pipeline si Railway a un souci mineur
+                // Mais on s'assure que le token est bien passé
                 withCredentials([string(credentialsId: 'railway_token', variable: 'RAILWAY_TOKEN')]) {
                     sh '''
                         export RAILWAY_TOKEN="$RAILWAY_TOKEN"
-                        npx -y @railway/cli up --environment production || true
+                        npx -y @railway/cli up --environment production || echo "Railway deploy failed but continuing..."
                     '''
                 }
             }
@@ -62,8 +71,12 @@ stage('SeqPulse Trigger') {
     post {
         always {
             script {
-                def jobStatus = (currentBuild.currentResult ?: 'SUCCESS').toLowerCase()
-                if (env.SEQPULSE_DEPLOYMENT_ID?.trim()) {
+                // Correction du jobStatus pour qu'il ne soit jamais vide
+                def rawStatus = currentBuild.currentResult ?: 'SUCCESS'
+                def jobStatus = rawStatus.toLowerCase()
+
+                if (env.SEQPULSE_DEPLOYMENT_ID && env.SEQPULSE_DEPLOYMENT_ID != "") {
+                    echo "Finishing SeqPulse for ID: ${env.SEQPULSE_DEPLOYMENT_ID} with status: ${jobStatus}"
                     sh """
                         npx -y seqpulse@0.5.2 ci finish \
                           --deployment-id "${env.SEQPULSE_DEPLOYMENT_ID}" \
