@@ -27,28 +27,28 @@ pipeline {
                     def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
                         .replaceFirst(/^origin\//, '')
 
-                    // Utilisation de returnStdout comme dans ta version qui marchait
-                    def triggerJson = sh(
-                        script: """
-                            npx -y seqpulse@0.5.2 ci trigger \
-                            --env prod \
-                            --branch "${branch}" \
-                            --output json
-                        """,
-                        returnStdout: true
-                    ).trim()
-
-                    // Extraction robuste avec readJSON (nécessite le plugin Pipeline Utility Steps)
-                    // Ou via Groovy JsonSlurper si le plugin n'est pas là
-                    def json = new groovy.json.JsonSlurper().parseText(triggerJson)
+                    // 1. On lance la commande en mode super silencieux
+                    // On redirige vers un fichier pour être SÛR de ne pas mélanger les logs NPM et le JSON
+                    sh "npx -y --quiet seqpulse@0.5.2 ci trigger --env prod --branch ${branch} --output json > trigger_output.json"
                     
-                    // Dans ta version JSON, l'ID est parfois dans json.deploymentId ou json.data.deployment_id
-                    env.SEQPULSE_DEPLOYMENT_ID = json.deploymentId ?: json.data?.deployment_id ?: ''
+                    // 2. On lit le fichier directement (beaucoup plus fiable que returnStdout)
+                    def responseText = readFile('trigger_output.json').trim()
+                    echo "Réponse brute reçue : ${responseText}"
 
-                    if (env.SEQPULSE_DEPLOYMENT_ID) {
-                        echo "SeqPulse deploymentId: ${env.SEQPULSE_DEPLOYMENT_ID}"
-                    } else {
-                        echo "Warning: No deployment ID found in response"
+                    try {
+                        def json = new groovy.json.JsonSlurper().parseText(responseText)
+                        env.SEQPULSE_DEPLOYMENT_ID = json.deploymentId ?: json.data?.deployment_id ?: ''
+                        
+                        if (env.SEQPULSE_DEPLOYMENT_ID) {
+                            echo "ID trouvé : ${env.SEQPULSE_DEPLOYMENT_ID}"
+                        }
+                    } catch (Exception e) {
+                        echo "Erreur lors du parsing JSON : ${e.message}"
+                        // Plan B : Essayer d'extraire l'ID avec un simple grep si le JSON est pollué
+                        env.SEQPULSE_DEPLOYMENT_ID = sh(
+                            script: "grep -o '\"deploymentId\":\"[^\"]*\"' trigger_output.json | cut -d'\"' -f4",
+                            returnStdout: true
+                        ).trim()
                     }
                 }
             }
