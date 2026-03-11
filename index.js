@@ -25,7 +25,7 @@ const replaceVal = (tempVal, originalVal) => {
 // Initialiser SeqPulse
 seqpulse.init({
   endpoint: "/seqpulse_metrics",
-  hmacEnabled: process.env.SEQPULSE_HMAC_ENABLED || "false",
+  hmacEnabled: process.env.SEQPULSE_HMAC_ENABLED === "false",
   hmacSecret: process.env.SEQPULSE_HMAC_SECRET
 });
 
