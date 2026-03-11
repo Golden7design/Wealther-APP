@@ -30,7 +30,7 @@ pipeline {
 
                     env.SEQPULSE_DEPLOYMENT_ID = sh(
                         script: """
-                            seqpulse ci trigger \
+                            ./node_modules/.bin/seqpulse ci trigger \
                               --base-url "$SEQPULSE_BASE_URL" \
                               --api-key "$SEQPULSE_API_KEY" \
                               --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
@@ -65,7 +65,7 @@ pipeline {
 
                 if (env.SEQPULSE_DEPLOYMENT_ID?.trim()) {
                     sh """
-                        seqpulse ci finish \
+                        ./node_modules/.bin/seqpulse ci finish \
                           --base-url "$SEQPULSE_BASE_URL" \
                           --api-key "$SEQPULSE_API_KEY" \
                           --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
