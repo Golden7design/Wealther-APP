@@ -18,7 +18,6 @@ pipeline {
         stage('Install') {
             steps {
                 sh 'npm ci'
-                sh 'npm install seqpulse@0.5.2'
             }
         }
 
@@ -28,36 +27,38 @@ pipeline {
                     def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
                         .replaceFirst(/^origin\//, '')
 
-                    sh """
-                        ./node_modules/.bin/seqpulse ci trigger \
-                        --base-url "$SEQPULSE_BASE_URL" \
-                        --api-key "$SEQPULSE_API_KEY" \
-                        --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
-                        --env prod \
-                        --branch "${branch}" \
-                        --output json > seqpulse_response.json
-                    """
-
                     env.SEQPULSE_DEPLOYMENT_ID = sh(
-                        script: "grep -o '\"deploymentId\":\"[^\"]*\"' seqpulse_response.json | cut -d'\"' -f4",
+                        script: """
+                            npx -y seqpulse@0.5.2 ci trigger \\
+                              --base-url "$SEQPULSE_BASE_URL" \\
+                              --api-key "$SEQPULSE_API_KEY" \\
+                              --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \\
+                              --env prod \\
+                              --branch "${branch}" \\
+                              --output deploymentId
+                        """,
                         returnStdout: true
                     ).trim()
 
-                    echo "Deployment ID: ${env.SEQPULSE_DEPLOYMENT_ID}"
+                    if (env.SEQPULSE_DEPLOYMENT_ID) {
+                        echo "Deployment ID: ${env.SEQPULSE_DEPLOYMENT_ID}"
+                    } else {
+                        error "SeqPulse n'a pas retourné de deploymentId"
+                    }
                 }
             }
         }
 
         stage('Deploy') {
-            steps {
-                withCredentials([string(credentialsId: 'railway_token', variable: 'RAILWAY_TOKEN')]) {
-                    sh '''
-                        export RAILWAY_TOKEN="$RAILWAY_TOKEN"
-                        npx -y @railway/cli up --environment production || true
-                    '''
-                }
-            }
-        }
+                    steps {
+                        withCredentials([string(credentialsId: 'railway_token', variable: 'RAILWAY_TOKEN')]) {
+                            sh '''
+                                export RAILWAY_TOKEN="$RAILWAY_TOKEN"
+                                npx -y @railway/cli up --environment production || true
+                            '''
+                        }
+                    }
+                    }
     }
 
     post {
@@ -67,11 +68,11 @@ pipeline {
 
                 if (env.SEQPULSE_DEPLOYMENT_ID?.trim()) {
                     sh """
-                        ./node_modules/.bin/seqpulse ci finish \
-                          --base-url "$SEQPULSE_BASE_URL" \
-                          --api-key "$SEQPULSE_API_KEY" \
-                          --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
-                          --deployment-id "${env.SEQPULSE_DEPLOYMENT_ID}" \
+                        npx -y seqpulse@0.5.2 ci finish \\
+                          --base-url "$SEQPULSE_BASE_URL" \\
+                          --api-key "$SEQPULSE_API_KEY" \\
+                          --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \\
+                          --deployment-id "${env.SEQPULSE_DEPLOYMENT_ID}" \\
                           --job-status "${jobStatus}"
                     """
                 } else {
