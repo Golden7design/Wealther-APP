@@ -27,28 +27,21 @@ stage('SeqPulse Trigger') {
             def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
                 .replaceFirst(/^origin\//, '')
 
-            // 1. Run the trigger and save to file
-            sh """
-                npx -y seqpulse@0.5.2 ci trigger \
-                --env prod \
-                --branch "${branch}" \
-                --non-blocking true \
-                --timeout-ms 15000 \
-                --output json > seqpulse_response.json
-            """
-
-            // 2. Extract ID and assign directly to the env object
-            // We use returnStdout: true to bring the value into the Groovy context
-            def extractedId = sh(
-                script: "grep -o '\"deploymentId\":\"[^\"]*\"' seqpulse_response.json | cut -d'\"' -f4",
+            // 1. Run the command and capture the JSON output directly into a variable
+            def response = sh(
+                script: "npx -y seqpulse@0.5.2 ci trigger --env prod --branch ${branch} --non-blocking true --timeout-ms 15000 --output json",
                 returnStdout: true
             ).trim()
 
-            if (extractedId && extractedId != "null") {
-                env.SEQPULSE_DEPLOYMENT_ID = extractedId
+            // 2. Parse the JSON string using Groovy's JsonSlurper
+            def json = new groovy.json.JsonSlurper().parseText(response)
+
+            // 3. Extract the ID and assign to the environment
+            if (json && json.deploymentId) {
+                env.SEQPULSE_DEPLOYMENT_ID = json.deploymentId
                 echo "Successfully captured Deployment ID: ${env.SEQPULSE_DEPLOYMENT_ID}"
             } else {
-                error "Failed to capture SeqPulse Deployment ID from response"
+                error "Failed to find deploymentId in SeqPulse response: ${response}"
             }
         }
     }
