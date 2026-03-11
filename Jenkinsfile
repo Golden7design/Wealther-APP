@@ -21,32 +21,30 @@ pipeline {
             }
         }
 
-        stage('SeqPulse Trigger') {
-            steps {
-                script {
-                    def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
-                        .replaceFirst(/^origin\//, '')
+stage('SeqPulse Trigger') {
+    steps {
+        script {
+            def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
+                .replaceFirst(/^origin\//, '')
 
-                    sh """
-                        npx -y seqpulse@0.5.2 ci trigger \
-                        --env prod \
-                        --branch "${branch}" \
-                        --non-blocking true \
-                        --timeout-ms 15000 \
-                        --output json > seqpulse_response.json 2>&1
-                    """
+            sh """
+                npx -y seqpulse@0.5.2 ci trigger \
+                  --env prod \
+                  --branch "${branch}" \
+                  --non-blocking true \
+                  --timeout-ms 15000 \
+                  --output json > seqpulse_response.json 2>&1
+            """
 
-                    sh 'cat seqpulse_response.json'
+            env.SEQPULSE_DEPLOYMENT_ID = sh(
+                script: '''grep -o '"deploymentId":"[^"]*"' seqpulse_response.json | cut -d'"' -f4''',
+                returnStdout: true
+            ).trim()
 
-                    env.SEQPULSE_DEPLOYMENT_ID = sh(
-                        script: "grep -o '\"deploymentId\":\"[^\"]*\"' seqpulse_response.json | cut -d'\"' -f4",
-                        returnStdout: true
-                    ).trim()
-
-                    echo "Deployment ID: ${env.SEQPULSE_DEPLOYMENT_ID}"
-                }
-            }
+            echo "Deployment ID: ${env.SEQPULSE_DEPLOYMENT_ID}"
         }
+    }
+}
 
         stage('Deploy') {
             steps {
