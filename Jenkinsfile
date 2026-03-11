@@ -29,25 +29,26 @@ pipeline {
 
                     env.SEQPULSE_DEPLOYMENT_ID = sh(
                         script: """
-                            npx -y seqpulse@0.5.2 ci trigger \\
-                              --base-url "$SEQPULSE_BASE_URL" \\
-                              --api-key "$SEQPULSE_API_KEY" \\
-                              --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \\
-                              --env prod \\
-                              --branch "${branch}" \\
+                            npx -y seqpulse@0.5.2 ci trigger \
+                              --env prod \
+                              --branch "${branch}" \
+                              --non-blocking true \
+                              --timeout-ms 15000 \
                               --output deploymentId
                         """,
                         returnStdout: true
                     ).trim()
 
                     if (env.SEQPULSE_DEPLOYMENT_ID) {
-                        echo "Deployment ID: ${env.SEQPULSE_DEPLOYMENT_ID}"
+                        echo "SeqPulse trigger accepted for deployment ${env.SEQPULSE_DEPLOYMENT_ID}"
                     } else {
-                        error "SeqPulse n'a pas retourné de deploymentId"
+                        env.SEQPULSE_DEPLOYMENT_ID = ''
+                        echo 'SeqPulse trigger skipped: no deployment id returned.'
                     }
                 }
             }
         }
+
         stage('Deploy') {
             steps {
                 withCredentials([string(credentialsId: 'railway_token', variable: 'RAILWAY_TOKEN')]) {
@@ -58,22 +59,19 @@ pipeline {
                 }
             }
         }
-    
     }
 
     post {
         always {
             script {
                 def jobStatus = (currentBuild.currentResult ?: 'SUCCESS').toLowerCase()
-
                 if (env.SEQPULSE_DEPLOYMENT_ID?.trim()) {
                     sh """
-                        npx -y seqpulse@0.5.2 ci finish \\
-                          --base-url "$SEQPULSE_BASE_URL" \\
-                          --api-key "$SEQPULSE_API_KEY" \\
-                          --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \\
-                          --deployment-id "${env.SEQPULSE_DEPLOYMENT_ID}" \\
-                          --job-status "${jobStatus}"
+                        npx -y seqpulse@0.5.2 ci finish \
+                          --deployment-id "${env.SEQPULSE_DEPLOYMENT_ID}" \
+                          --job-status "${jobStatus}" \
+                          --timeout-ms 15000 \
+                          --non-blocking true
                     """
                 } else {
                     echo 'Skipping SeqPulse finish: no deployment id available.'
