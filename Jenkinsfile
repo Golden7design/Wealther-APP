@@ -27,21 +27,29 @@ stage('SeqPulse Trigger') {
             def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
                 .replaceFirst(/^origin\//, '')
 
+            // 1. Run the trigger and save to file
             sh """
                 npx -y seqpulse@0.5.2 ci trigger \
-                  --env prod \
-                  --branch "${branch}" \
-                  --non-blocking true \
-                  --timeout-ms 15000 \
-                  --output json > seqpulse_response.json 2>&1
+                --env prod \
+                --branch "${branch}" \
+                --non-blocking true \
+                --timeout-ms 15000 \
+                --output json > seqpulse_response.json
             """
 
-            env.SEQPULSE_DEPLOYMENT_ID = sh(
-                script: '''grep -o '"deploymentId":"[^"]*"' seqpulse_response.json | cut -d'"' -f4''',
+            // 2. Extract ID and assign directly to the env object
+            // We use returnStdout: true to bring the value into the Groovy context
+            def extractedId = sh(
+                script: "grep -o '\"deploymentId\":\"[^\"]*\"' seqpulse_response.json | cut -d'\"' -f4",
                 returnStdout: true
             ).trim()
 
-            echo "Deployment ID: ${env.SEQPULSE_DEPLOYMENT_ID}"
+            if (extractedId && extractedId != "null") {
+                env.SEQPULSE_DEPLOYMENT_ID = extractedId
+                echo "Successfully captured Deployment ID: ${env.SEQPULSE_DEPLOYMENT_ID}"
+            } else {
+                error "Failed to capture SeqPulse Deployment ID from response"
+            }
         }
     }
 }
