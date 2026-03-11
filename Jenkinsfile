@@ -18,7 +18,7 @@ pipeline {
         stage('Install') {
             steps {
                 sh 'npm ci'
-                sh 'npm install -g seqpulse@0.5.2'
+                sh 'npm install seqpulse@0.5.2'
             }
         }
 
