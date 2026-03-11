@@ -30,15 +30,19 @@ pipeline {
 
                     sh """
                         ./node_modules/.bin/seqpulse ci trigger \
-                          --base-url "$SEQPULSE_BASE_URL" \
-                          --api-key "$SEQPULSE_API_KEY" \
-                          --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
-                          --env prod \
-                          --branch "${branch}" \
-                          --output deployment_id > seqpulse_id.txt
+                        --base-url "$SEQPULSE_BASE_URL" \
+                        --api-key "$SEQPULSE_API_KEY" \
+                        --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
+                        --env prod \
+                        --branch "${branch}" \
+                        --output json > seqpulse_response.json
                     """
 
-                    env.SEQPULSE_DEPLOYMENT_ID = readFile('seqpulse_id.txt').trim()
+                    sh 'cat seqpulse_response.json'
+
+                    def response = readJSON file: 'seqpulse_response.json'
+                    env.SEQPULSE_DEPLOYMENT_ID = response.deploymentId ?: ''
+
                     echo "Deployment ID: ${env.SEQPULSE_DEPLOYMENT_ID}"
                 }
             }
@@ -76,4 +80,4 @@ pipeline {
             }
         }
     }
-}
+}y
