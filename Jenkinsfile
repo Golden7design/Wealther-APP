@@ -8,7 +8,7 @@ pipeline {
     }
 
     environment {
-        SEQPULSE_BASE_URL = 'https://9de5-102-129-82-18.ngrok-free.app'
+        SEQPULSE_BASE_URL = 'https://2d2b-102-129-82-40.ngrok-free.app'
         SEQPULSE_API_KEY = 'SP_33747dfae32345a3bd16adffecbefe6b'
         SEQPULSE_METRICS_ENDPOINT = 'https://wealther-app-production.up.railway.app/seqpulse_metrics'
         SEQPULSE_DEPLOYMENT_ID = ''
@@ -18,46 +18,34 @@ pipeline {
         stage('Install') {
             steps {
                 sh 'npm ci'
+                sh 'npm install -g seqpulse@0.5.2'
             }
         }
+
         stage('SeqPulse Trigger') {
-                steps {
-                    script {
+            steps {
+                script {
+                    def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
+                        .replaceFirst(/^origin\//, '')
 
-                        def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
-                            .replaceFirst(/^origin\//, '')
+                    env.SEQPULSE_DEPLOYMENT_ID = sh(
+                        script: """
+                            seqpulse ci trigger \
+                              --base-url "$SEQPULSE_BASE_URL" \
+                              --api-key "$SEQPULSE_API_KEY" \
+                              --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
+                              --env prod \
+                              --branch "${branch}" \
+                              --output deployment_id
+                        """,
+                        returnStdout: true
+                    ).trim()
 
-                        dir(env.WORKSPACE) {
-
-                            def triggerJson = sh(
-                                script: """
-                                    npx -y seqpulse@0.5.2 ci trigger \
-                                    --base-url "$SEQPULSE_BASE_URL" \
-                                    --api-key "$SEQPULSE_API_KEY" \
-                                    --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
-                                    --env prod \
-                                    --branch "${branch}" \
-                                    --output json
-                                """,
-                                returnStdout: true
-                            ).trim()
-
-                            echo "Raw SeqPulse JSON: ${triggerJson}"
-
-                            // Parse JSON proprement
-                            def parsed = readJSON text: triggerJson
-
-                            env.SEQPULSE_DEPLOYMENT_ID = parsed.deploymentId ?: parsed.data?.deployment_id ?: ""
-
-                            if (env.SEQPULSE_DEPLOYMENT_ID) {
-                                echo "SeqPulse deploymentId: ${env.SEQPULSE_DEPLOYMENT_ID}"
-                            } else {
-                                echo "SeqPulse trigger returned no deployment id."
-                            }
-                        }
-                    }
+                    echo "Deployment ID: ${env.SEQPULSE_DEPLOYMENT_ID}"
                 }
+            }
         }
+
         stage('Deploy') {
             steps {
                 withCredentials([string(credentialsId: 'railway_token', variable: 'RAILWAY_TOKEN')]) {
@@ -77,7 +65,7 @@ pipeline {
 
                 if (env.SEQPULSE_DEPLOYMENT_ID?.trim()) {
                     sh """
-                        npx -y seqpulse@0.5.2 ci finish \
+                        seqpulse ci finish \
                           --base-url "$SEQPULSE_BASE_URL" \
                           --api-key "$SEQPULSE_API_KEY" \
                           --metrics-endpoint "$SEQPULSE_METRICS_ENDPOINT" \
