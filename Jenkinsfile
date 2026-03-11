@@ -27,24 +27,23 @@ pipeline {
                     def branch = (env.CHANGE_BRANCH ?: env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main')
                         .replaceFirst(/^origin\//, '')
 
+                    sh """
+                        npx -y seqpulse@0.5.2 ci trigger \
+                        --env prod \
+                        --branch "${branch}" \
+                        --non-blocking true \
+                        --timeout-ms 15000 \
+                        --output json > seqpulse_response.json 2>&1
+                    """
+
+                    sh 'cat seqpulse_response.json'
+
                     env.SEQPULSE_DEPLOYMENT_ID = sh(
-                        script: """
-                            npx -y seqpulse@0.5.2 ci trigger \
-                              --env prod \
-                              --branch "${branch}" \
-                              --non-blocking true \
-                              --timeout-ms 15000 \
-                              --output deploymentId
-                        """,
+                        script: "grep -o '\"deploymentId\":\"[^\"]*\"' seqpulse_response.json | cut -d'\"' -f4",
                         returnStdout: true
                     ).trim()
 
-                    if (env.SEQPULSE_DEPLOYMENT_ID) {
-                        echo "SeqPulse trigger accepted for deployment ${env.SEQPULSE_DEPLOYMENT_ID}"
-                    } else {
-                        env.SEQPULSE_DEPLOYMENT_ID = ''
-                        echo 'SeqPulse trigger skipped: no deployment id returned.'
-                    }
+                    echo "Deployment ID: ${env.SEQPULSE_DEPLOYMENT_ID}"
                 }
             }
         }
