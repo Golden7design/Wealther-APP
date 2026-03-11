@@ -38,10 +38,10 @@ pipeline {
                         --output json > seqpulse_response.json
                     """
 
-                    sh 'cat seqpulse_response.json'
-
-                    def response = readJSON file: 'seqpulse_response.json'
-                    env.SEQPULSE_DEPLOYMENT_ID = response.deploymentId ?: ''
+                    env.SEQPULSE_DEPLOYMENT_ID = sh(
+                        script: "grep -o '\"deploymentId\":\"[^\"]*\"' seqpulse_response.json | cut -d'\"' -f4",
+                        returnStdout: true
+                    ).trim()
 
                     echo "Deployment ID: ${env.SEQPULSE_DEPLOYMENT_ID}"
                 }
