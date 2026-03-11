@@ -48,17 +48,17 @@ pipeline {
                 }
             }
         }
-
         stage('Deploy') {
-                    steps {
-                        withCredentials([string(credentialsId: 'railway_token', variable: 'RAILWAY_TOKEN')]) {
-                            sh '''
-                                export RAILWAY_TOKEN="$RAILWAY_TOKEN"
-                                npx -y @railway/cli up --environment production || true
-                            '''
-                        }
-                    }
-                    }
+            steps {
+                withCredentials([string(credentialsId: 'railway_token', variable: 'RAILWAY_TOKEN')]) {
+                    sh '''
+                        export RAILWAY_TOKEN="$RAILWAY_TOKEN"
+                        npx -y @railway/cli up --environment production || true
+                    '''
+                }
+            }
+        }
+    
     }
 
     post {
