@@ -1,11 +1,6 @@
 workflow:
   rules:
-    # équivalent de:
-    # on: push (main)
     - if: $CI_COMMIT_BRANCH == "main"
-
-    # équivalent de:
-    # workflow_dispatch
     - if: $CI_PIPELINE_SOURCE == "web"
 
 stages:
@@ -16,10 +11,10 @@ deploy-production:
   image: node:20-bookworm
 
   before_script:
-    # installer seqpulse CLI
+    # Install SeqPulse CLI
     - npm install -g seqpulse@0.5.2
 
-    # installer jq pour parser le JSON
+    # Install jq to parse JSON
     - apt-get update -qq
     - apt-get install -y jq
 
@@ -53,8 +48,8 @@ deploy-production:
       echo "$DEPLOYMENT_ID" > .seqpulse_deployment_id
       echo "SeqPulse deployment_id: $DEPLOYMENT_ID"
 
-      # ici ton deploy réel si nécessaire
-      echo "Deploy step placeholder (no-op)"
+      # Put your real deployment step here if needed
+      echo "Deployment step placeholder (no-op)"
 
   after_script:
     - |

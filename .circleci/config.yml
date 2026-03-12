@@ -1,0 +1,64 @@
+version: 2.1
+
+workflows:
+  deploy:
+    jobs:
+      - deploy-production:
+          filters:
+            branches:
+              only: main
+
+jobs:
+  deploy-production:
+    docker:
+      - image: cimg/node:20.11
+
+    steps:
+      - checkout
+
+      - run:
+          name: Install SeqPulse and jq
+          command: |
+            npm install -g seqpulse@0.5.2
+            sudo apt-get update -qq
+            sudo apt-get install -y jq
+
+      - run:
+          name: SeqPulse trigger
+          command: |
+            set -eu
+
+            seqpulse ci trigger \
+              --env prod \
+              --branch "$CIRCLE_BRANCH" \
+              --output json > seqpulse_trigger.json
+
+            DEPLOYMENT_ID=$(jq -r '.deployment_id // .deploymentId // .data.deployment_id // .data.deploymentId // empty' seqpulse_trigger.json)
+
+            if [ -z "$DEPLOYMENT_ID" ]; then
+              echo "Failed to extract deployment_id"
+              exit 1
+            fi
+
+            echo "$DEPLOYMENT_ID" > .seqpulse_deployment_id
+            echo "SeqPulse deployment_id: $DEPLOYMENT_ID"
+
+      - run:
+          name: Deploy placeholder
+          command: echo "Deployment step placeholder (no-op)"
+
+      - run:
+          name: SeqPulse finish
+          when: always
+          command: |
+            set +e
+
+            if [ -f ".seqpulse_deployment_id" ]; then
+              DEPLOYMENT_ID="$(cat .seqpulse_deployment_id)"
+
+              seqpulse ci finish \
+                --deployment-id "$DEPLOYMENT_ID" \
+                --job-status "${CIRCLE_JOB_STATUS:-unknown}"
+            else
+              echo "No deployment id found; skipping SeqPulse finish."
+            fi
