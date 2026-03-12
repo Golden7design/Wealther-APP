@@ -1,0 +1,74 @@
+workflow:
+  # Equivalent of GitHub Actions:
+  # on: push (main) + workflow_dispatch
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+stages:
+  - deploy
+
+deploy-production:
+  stage: deploy
+  image: node:20-bookworm
+  script:
+    - |
+      # SeqPulse steps aligned with:
+      # my_portfolio/.github/workflows/deploy-prod.yml
+      #
+      # Expected GitLab CI/CD variables (Settings -> CI/CD -> Variables):
+      # - SEQPULSE_BASE_URL
+      # - SEQPULSE_API_KEY
+      # - SEQPULSE_METRICS_ENDPOINT
+      set -eu
+
+      npm install -g seqpulse@0.5.2
+
+      seqpulse ci trigger \
+        --env prod \
+        --branch "$CI_COMMIT_REF_NAME" \
+        --output json > seqpulse_trigger.json
+
+      node - <<'NODE'
+      const fs = require("fs");
+      const txt = fs.readFileSync("seqpulse_trigger.json", "utf8").trim();
+      const json = JSON.parse(txt || "{}");
+
+      // Keep this tolerant to schema drift (same spirit as the Jenkinsfile parser).
+      const deploymentId =
+        json.deployment_id ||
+        json.deploymentId ||
+        (json.data && (json.data.deployment_id || json.data.deploymentId)) ||
+        "";
+
+      if (!deploymentId) {
+        console.error("Unable to extract deployment_id from SeqPulse trigger output:", txt);
+        process.exit(1);
+      }
+
+      fs.writeFileSync(".seqpulse_deployment_id", deploymentId, "utf8");
+      console.log("SeqPulse deployment_id:", deploymentId);
+NODE
+
+      # No build/test here (as requested). Put your deploy command here if/when needed.
+      # Example:
+      # npx -y @railway/cli up --environment production
+      echo "Deploy step placeholder (no-op)."
+  after_script:
+    - |
+      # Always notify SeqPulse, like `if: always()` in GitHub Actions.
+      set +e
+
+      DEPLOYMENT_ID=""
+      if [ -f ".seqpulse_deployment_id" ]; then
+        DEPLOYMENT_ID="$(cat .seqpulse_deployment_id 2>/dev/null || true)"
+      fi
+
+      if [ -n "$DEPLOYMENT_ID" ] && [ "$DEPLOYMENT_ID" != "null" ]; then
+        npm install -g seqpulse@0.5.2 >/dev/null 2>&1 || true
+        seqpulse ci finish \
+          --deployment-id "$DEPLOYMENT_ID" \
+          --job-status "${CI_JOB_STATUS:-unknown}"
+      else
+        echo "No deployment id found; skipping SeqPulse finish."
+      fi
